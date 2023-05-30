@@ -1,0 +1,40 @@
+project:
+  type: book
+  output-dir: docs
+execute:
+  echo: false
+  cache: false
+  freeze: auto
+
+book:
+  title: "Red girasol Aapresid "
+  subtitle: "Campaña 2022/23"
+  search: false
+  page-footer: 
+    border: false
+    background: light
+    # left: "Consultas sobre el análisis de datos y reporte en general: edwardsmolina.juan@inta.gob.ar"
+  sidebar:
+    pinned: true
+    tools:
+          - icon: save
+            # menu:
+            #   - text: Data curasemillas
+            #     url:  "data/cura_dat.csv"
+            #   - text: Data foliares
+            #     url:  "data/foliar_dat.csv"  
+  chapters:
+    - index.qmd
+    # - meteo.qmd
+    - geno_densidad.qmd
+    - ferti.qmd
+    - fungi.qmd
+
+format:
+  html:
+    toc: true
+    toc-depth: 5
+    theme: 
+      light: cosmo
+      dark: superhero
+

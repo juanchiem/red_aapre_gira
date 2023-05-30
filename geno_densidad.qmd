@@ -1,0 +1,124 @@
+---
+title: "Genetica + densidad"
+format: html
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = FALSE, message = FALSE)
+
+library(tidyverse) 
+library(rio)
+library(huxtable)
+# library(ggstance)
+library(huxtable)
+# library(patchwork)
+# library(lme4)
+# library(nlme)
+# library(emmeans)
+# library(multcomp)
+# library(performance)
+
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflict_prefer("select", "dplyr")
+
+theme_set(theme_bw(base_size = 12)) 
+```
+
+```{r}
+geno_raw <- import("data/Planilla Girasol 2023.xlsx", sheet="Germoplasma + densidad") %>% 
+  janitor::clean_names() 
+# glimpse(geno_raw)
+# geno_raw %>% names %>% sort
+```
+
+```{r, eval=FALSE}
+geno_raw %>% 
+  select("nombre_tratamiento", "sitio", rendimiento, mat_grasa_mtra_limpia_sss) %>% pull(rendimiento)
+```
+
+```{r}
+hum_recibo <- 11
+bonif <- 42
+
+geno_raw %>% 
+  mutate(across(c("germoplasma", "sitio"), 
+                ~stringi::stri_trans_general(
+                  #pasar a mayusculas y sacar puntos
+                  str_to_upper(gsub(',', '\\.', 
+                                    # sacar espacios antes-desp
+                                    str_trim(
+                                      str_replace_all(., fixed(" "), "_")
+                                    ))), "Latin-ASCII"))) %>% 
+  mutate_at(vars(rendimiento, mat_grasa_mtra_limpia_sss, humedad_a_cosecha_percent), 
+            as.numeric) %>% 
+  mutate_at(vars(densidad), as.factor) %>% 
+  # select(rendimiento, humedad_a_cosecha_percent, mat_grasa_mtra_limpia_sss) %>% 
+  drop_na(rendimiento,mat_grasa_mtra_limpia_sss) %>% 
+  # pull(mat_grasa_mtra_limpia_sss)
+  mutate(
+     agua = rendimiento*humedad_a_cosecha_percent/100,
+     rinde_seco = rendimiento - agua, 
+     rinde_bonif = rinde_seco * (1 + (mat_grasa_mtra_limpia_sss - bonif) * 2/100),
+     rinde_final_11 = rinde_bonif*(1+hum_recibo/100)
+         ) -> geno
+    # )%>%
+```
+
+```{r, }
+geno %>%   
+  select(rendimiento, humedad_a_cosecha_percent, mat_grasa_mtra_limpia_sss,
+         agua,rinde_seco,rinde_bonif, rinde_final_11) %>% 
+  head() %>% 
+  as_hux() %>% 
+  set_font_size(9) %>% 
+  theme_compact() %>% 
+  set_tb_padding(.05)
+```
+
+## Genética
+
+```{r}
+geno %>% 
+  count(germoplasma) %>% 
+  as_hux() %>% 
+  set_font_size(9) %>% 
+  theme_compact() %>% 
+  set_tb_padding(.05)
+```
+```{r echo=FALSE, eval=TRUE, results='asis'}
+map(
+  geno %>% distinct(sitio) %>% pull(sitio), 
+  ~ geno %>% 
+    filter(str_detect(ensayo, "gen"), sitio==.x) %>% 
+    ggplot() +
+    aes(x=germoplasma, y=rinde_final_11)+
+    geom_point() + 
+    # facet_wrap("sitio", ncol = 2)+
+    stat_summary(fun="mean", geom = "crossbar", width=.2, col="red") + 
+    # stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) + 
+    coord_flip()+
+    stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) + 
+    labs(title=.x)  
+)
+```
+
+
+## Densidad
+
+```{r, fig.height=10}
+geno %>% 
+    filter(str_detect(ensayo, "densidad")) %>% 
+    # distinct(densidad) %>% 
+    mutate(densidad=  fct_relevel(densidad, "Menos 30%", "Estandar", "Mas 30%")) %>% 
+    ggplot() +
+    aes(x=densidad, y=rinde_final_11)+
+    geom_point() + 
+    facet_wrap("sitio", ncol = 2)+
+    stat_summary(fun="mean", geom = "crossbar", width=.2, col="red") + 
+    # stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) + 
+    # coord_flip()+
+    stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) +
+    stat_summary(fun=mean, colour="red", geom="line", aes(group = 1))
+
+```
+

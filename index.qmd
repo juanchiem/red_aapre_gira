@@ -1,0 +1,14 @@
+- Coordinación general: Magalí Gutierrez 
+- Coordinación técnica: Juan Edwards (INTA Balcarce)
+
+![](figs/0_aapre_seba.png){fig-align="center" heigth="50"}
+
+# Sitios experimentales {.unnumbered}
+
+![Localización de sitios experimentales](plots/mapa_sitios.png){fig-align="center"}
+
+## Empresas participantes {.unnumbered}
+
+![](figs/patrocinantes.png){fig-align="center"}
+
+
