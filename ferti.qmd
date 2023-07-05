@@ -8,10 +8,11 @@ knitr::opts_chunk$set(echo = F, warning = FALSE, message = FALSE)
 
 library(tidyverse) 
 library(rio)
+library(lmerTest)
+library(broom)
 # library(ggstance)
 library(huxtable)
 # library(patchwork)
-library(lme4)
 # library(nlme)
 library(emmeans)
 # library(multcomp)
@@ -40,6 +41,8 @@ ferti_raw %>%
   theme_compact() %>% 
   set_tb_padding(.05)
 ```
+
+Preparando los datos
 
 ```{r}
 hum_recibo <- 11
@@ -83,25 +86,78 @@ ferti %>%
     stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) +
     stat_summary(fun=mean, colour="red", geom="line", aes(group = 1))
 ```
+El sitio "MDP" vuela porque no es consistente con el resto.
 
 ```{r}
-# Modelo tratamiento factor
-m <- lmer(
-  rinde_final_11 ~ tratamiento * (1 | sitio/repeticion),
+ferti <- ferti |> 
+  filter(sitio != "MDP")
+```
+
+
+Mirando por localidad
+
+```{r}
+ferti |> 
+  group_nest(sitio) |> 
+  mutate(
+    m = map(data, ~ lm(rinde_final_11 ~ tratamiento, .x)),
+    CV = map(m, ~ agricolae::cv.model(.x))
+  ) |> 
+  unnest(c(CV)) |> 
+  select(sitio, CV)
+```
+
+En general los sitios tuvieron errores experimentales bajos, salvo FUnke pero 15% zafa. Las ultimas dos localidades no tienen repes.-
+
+```{r, fig.height=10}
+ferti %>% 
+  ggplot() +
+  aes(x=N, y=rinde_final_11, color = sitio)+
+  geom_smooth(method = "lm", se = F) +
+  geom_smooth(aes(group = 1), method = "lm", color = "black")
+```
+
+La linea negra muestra el rendimiento promedio de todos los ambientes. Si uno trabajar con rendimientos relativos seria como descontar el efecto localidad, equivale al modelo global.
+
+```{r, fig.height=10}
+ferti %>% 
+  group_by(sitio) |> 
+  mutate(rend_rel = rinde_final_11/mean(rinde_final_11)) |> 
+  ggplot() +
+  aes(x = N, y = rend_rel, color = sitio)+
+  geom_smooth(method = "lm", se = F) +
+  geom_smooth(aes(group = 1), method = "lm", color = "black") +
+  ylim(0.75, 1.25)
+```
+## Modelo global
+
+```{r}
+# Modelo con interacción tratamiento factor
+m0 <- lmerTest::lmer(
+  rinde_final_11 ~ tratamiento + (1 | tratamiento:sitio) + (1|sitio/repeticion),
   data = ferti |> filter(sitio != "MDP")
 )
+plot(m0)
 ```
 
+Los residuos bastante bien.
 
 ```{r}
-# ANOVA
-car::Anova(m)
+# Anova efectos fijos
+anova(m0)
 ```
 
-Según esto ha diferencias entre las dosis, al menos una.
+Segun esto el efecto del tratamiento no es significativo.
 
 ```{r}
-VarCorr(m)
+# Anova efectos aleatorios
+ranova(m0)
+```
+
+La tabla de efectos aleatorios indicaría que la interaccion tratamiento sitio es significativa, explicando la cancelacion del efecto global?
+
+```{r}
+VarCorr(m0)
 ```
 
 La mayor parte de la variacion debida a sitio.
@@ -109,7 +165,7 @@ La mayor parte de la variacion debida a sitio.
 Los rendimientos promedio en toda la red para estas dosis fueron:
 
 ```{r}
-lsm <- emmeans(m, ~tratamiento)
+lsm <- emmeans(m0, ~tratamiento)
 lsm
 ```
 
@@ -122,16 +178,7 @@ Comparando dosis individuales con el control
 contrast(lsm, method = "trt.vs.ctrl")
 ```
 
-- Se diferencia la dosis 120 del control, 131 kg/ha globalmente a favor de la dosis 120.
-
-- La dosis 80 tambien tuvo una diferencia de 107 kg/ha que fue signficativa al 10%
-
-```{r}
-# Comparaciones consecutivas
-contrast(lsm, method = "consec")
-```
-
-En este sentido, entre 120 y 80 no habria diferencias.
+- No hay diferencia
 
 Si vamos al modelo de respuesta:
 
@@ -140,18 +187,56 @@ Si vamos al modelo de respuesta:
 contrast(lsm, method = "poly")
 ```
 
-Mirando por localidad
+Parece indicar que hay un efecto lineal significativo.
 
 ```{r}
-ferti |> 
-  filter(sitio != "MDP") |> 
+m_lin <- lmerTest::lmer(
+  rinde_final_11 ~ N + (1 | N:sitio) + (1|sitio/repeticion),
+  ferti |> filter(sitio != "MDP")
+)
+anova(m_lin)
+```
+
+El modelo global en funcion de la dosis de nitrogeno (considerando la variabilidad de localidades y repeticiones dentro de localidades) es estadisticamente significativo
+
+```{r}
+summary(m_lin)
+```
+
+### Modelos por localidad
+
+```{r}
+modelos_xloc <- ferti |> 
   group_nest(sitio) |> 
   mutate(
     m = map(data, ~ lm(rinde_final_11 ~ tratamiento, .x)),
-    anova = map(m, ~ anova(.x)),
-    pval = map(anova, ~ .x |> tidy() |> filter(term == "tratamiento") |> pull(p.value))
-  ) |> 
-  unnest(pval) |> 
-  select(sitio, pval)
+    pval_trt = map(m, ~ anova(.x) |> tidy() |> filter(term == "tratamiento") |> pull(p.value)),
+    m_lin = map(data, ~ lm(rinde_final_11 ~ N, .x)),
+    pval_N = map(m_lin, ~ anova(.x) |> tidy() |> filter(term == "N") |> pull(p.value)),
+    beta = map(m_lin, ~ coef(.x)[2])
+  ) 
 
+modelos_xloc |> 
+  unnest(cols = c(starts_with("pval"), beta)) |> 
+  select(sitio, starts_with("pval"), beta)
 ```
+
+Este analisis muestra que los modelos de anova (más flexibles pero con mas parametros) no muestran respuesta salvo en `Rivera` donde seguramente hay diferencia entre minimas y máximas.
+
+
+```{r}
+modelos_xloc |> 
+  filter(sitio == "Rivera") |> 
+  pull(m) |> 
+  pluck(1) |> 
+  emmeans(pairwise ~tratamiento)
+```
+
+Cuando el modelo se restringe a una funcion lineal, se simplifica, por eso el valor p mejora.
+
+
+## Conclusion
+
+A nivel global los datos no darían mucha evidencia de un efecto consistente. La mayor parte de la variaciópn se lo lleva la variacion entre sitios (es de esperarse) y la interacción.
+
+Analizando por sitio se encuentran algunas respuestas.
