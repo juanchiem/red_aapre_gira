@@ -5,7 +5,7 @@
 
 # Sitios experimentales {.unnumbered}
 
-![Localización de sitios experimentales](plots/mapa_sitios.png){fig-align="center"}
+![Localización de sitios experimentales](/mapa.png){fig-align="center"}
 
 ## Empresas participantes {.unnumbered}
 
