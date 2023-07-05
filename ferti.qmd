@@ -8,13 +8,12 @@ knitr::opts_chunk$set(echo = F, warning = FALSE, message = FALSE)
 
 library(tidyverse) 
 library(rio)
-library(huxtable)
 # library(ggstance)
 library(huxtable)
 # library(patchwork)
-# library(lme4)
+library(lme4)
 # library(nlme)
-# library(emmeans)
+library(emmeans)
 # library(multcomp)
 # library(performance)
 
@@ -29,11 +28,9 @@ ferti_raw <- import("data/Planilla Girasol 2023.xlsx", sheet="Fertilización") %
   janitor::clean_names()
 ```
 
-
 ```{r}
 # ferti_raw %>% names %>% sort
 ```
-
 
 ```{r}
 ferti_raw %>% 
@@ -43,40 +40,41 @@ ferti_raw %>%
   theme_compact() %>% 
   set_tb_padding(.05)
 ```
+
 ```{r}
 hum_recibo <- 11
 bonif <- 42
 
 ferti_raw %>% 
-  mutate(across(c("sitio"), 
-                ~stringi::stri_trans_general(
-                  #pasar a mayusculas y sacar puntos
-                  str_to_upper(gsub(',', '\\.', 
-                                    # sacar espacios antes-desp
-                                    str_trim(
-                                      str_replace_all(., fixed(" "), "_")
-                                    ))), "Latin-ASCII"))) %>% 
-  mutate_at(vars(rendimiento, mat_grasa_mtra_limpia_sss, humedad_a_cosecha_percent), 
-            as.numeric) %>% 
+  mutate(
+    sitio2 = sitio |> 
+      str_to_upper() |> 
+      str_squish() |> 
+      str_replace_all(",", "\\.") |> 
+      str_replace_all(" ", "_"),
+    across(c(rendimiento, mat_grasa_mtra_limpia_sss, humedad_a_cosecha_percent), 
+           as.numeric)
+  ) |>  
   # mutate_at(vars(densidad), as.factor) %>% 
   # select(rendimiento, humedad_a_cosecha_percent, mat_grasa_mtra_limpia_sss) %>% 
   drop_na(rendimiento,mat_grasa_mtra_limpia_sss) %>% 
   # pull(mat_grasa_mtra_limpia_sss)
   mutate(
-     agua = rendimiento*humedad_a_cosecha_percent/100,
-     rinde_seco = rendimiento - agua, 
-     rinde_bonif = rinde_seco * (1 + (mat_grasa_mtra_limpia_sss - bonif) * 2/100),
-     rinde_final_11 = rinde_bonif*(1+hum_recibo/100)
-         ) -> ferti
+    agua = rendimiento*humedad_a_cosecha_percent/100,
+    rinde_seco = rendimiento - agua, 
+    rinde_bonif = rinde_seco * (1 + (mat_grasa_mtra_limpia_sss - bonif) * 2/100),
+    rinde_final_11 = rinde_bonif*(1+hum_recibo/100),
+    N = parse_number(tratamiento),
+    tratamiento = factor(N) |> fct_relevel("120", after = Inf)
+  ) -> ferti
     # )%>%
 ```
 
 ```{r, fig.height=10}
 ferti %>% 
     # distinct(tratamiento) %>%
-    mutate(tratamiento=  fct_relevel(factor(tratamiento), "N0","40 kg/ha N","60 kg/ha N","80 kg/ha N","120 kg/ha N")) %>%
     ggplot() +
-    aes(x=tratamiento, y=rinde_final_11)+
+    aes(x=N, y=rinde_final_11)+
     geom_point() + 
     facet_wrap("sitio", ncol = 2)+
     stat_summary(fun="mean", geom = "crossbar", width=.2, col="red") + 
@@ -84,4 +82,76 @@ ferti %>%
     # coord_flip()+
     stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) +
     stat_summary(fun=mean, colour="red", geom="line", aes(group = 1))
+```
+
+```{r}
+# Modelo tratamiento factor
+m <- lmer(
+  rinde_final_11 ~ tratamiento * (1 | sitio/repeticion),
+  data = ferti |> filter(sitio != "MDP")
+)
+```
+
+
+```{r}
+# ANOVA
+car::Anova(m)
+```
+
+Según esto ha diferencias entre las dosis, al menos una.
+
+```{r}
+VarCorr(m)
+```
+
+La mayor parte de la variacion debida a sitio.
+
+Los rendimientos promedio en toda la red para estas dosis fueron:
+
+```{r}
+lsm <- emmeans(m, ~tratamiento)
+lsm
+```
+
+El amplio IC denota la mayor incertidumbre al considerar el efecto aleatorio de sitio.
+
+Comparando dosis individuales con el control
+
+```{r}
+# Comaracion dosis individuales vs control
+contrast(lsm, method = "trt.vs.ctrl")
+```
+
+- Se diferencia la dosis 120 del control, 131 kg/ha globalmente a favor de la dosis 120.
+
+- La dosis 80 tambien tuvo una diferencia de 107 kg/ha que fue signficativa al 10%
+
+```{r}
+# Comparaciones consecutivas
+contrast(lsm, method = "consec")
+```
+
+En este sentido, entre 120 y 80 no habria diferencias.
+
+Si vamos al modelo de respuesta:
+
+```{r}
+# Contrastes polinomicos
+contrast(lsm, method = "poly")
+```
+
+Mirando por localidad
+
+```{r}
+ferti |> 
+  filter(sitio != "MDP") |> 
+  group_nest(sitio) |> 
+  mutate(
+    m = map(data, ~ lm(rinde_final_11 ~ tratamiento, .x)),
+    anova = map(m, ~ anova(.x)),
+    pval = map(anova, ~ .x |> tidy() |> filter(term == "tratamiento") |> pull(p.value))
+  ) |> 
+  unnest(pval) |> 
+  select(sitio, pval)
+
 ```
