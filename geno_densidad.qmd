@@ -11,9 +11,11 @@ knitr::opts_chunk$set(echo = F, warning = FALSE, message = FALSE)
 library(tidyverse) 
 library(rio)
 library(huxtable)
+library(car)
+library(broom)
 # library(ggstance)
 # library(patchwork)
-library(lme4)
+library(lmerTest)
 # library(nlme)
 library(emmeans)
 library(multcomp)
@@ -127,22 +129,35 @@ geno %>%
 
 ```{r}
 geno %>% 
-  count(sitio, hibrido)
+  count(sitio, hibrido) |> 
+  group_by(sitio) |> 
+  summarise(across(n, list(min = min, max = max)))
 ```
+
+Sitios sin reps o con un solo hibrido repetido: `RIVERA`, `TANDIL`, `SALDUNGARAY`)
 
 ```{r}
 mod_xloc <- geno |>
+  filter(!sitio %in% c("RIVERA", "TANDIL", "SALDUNGARAY")) |> 
   group_nest(sitio) |> 
   mutate(
     m = map(data, ~ lm(rinde_bonificado ~ hibrido + repeticion, .x)),
     pval = map(m, ~ anova(.x) |> tidy() |> filter(term == "hibrido") |> pull(p.value)),
-    emm = map(m, ~ emmeans(.x, ~ hibrido) |> tidy())
-  ) 
+    emm = map(m, ~ emmeans(.x, ~ hibrido) |> tidy()), 
+    sw = map(m, ~ resid(.x) |> shapiro.test() |> tidy() |> pull(p.value)),
+    lv = map2(m, data, ~ leveneTest(resid(.x) ~ hibrido, .y) |> tidy() |> pull(p.value))
+  ) |> 
 
 mod_xloc |> 
-  unnest(cols = pval) |> 
-  select(sitio, pval)
+  unnest(cols = c(pval, sw, lv)) |> 
+  select(sitio, pval, sw, lv)
+```
 
+En algunos sitios no se cumplen los supuestos pero por otro lado, teniendo rep = 2 medo complicado. En general se detectan diferencias en la mayoría de los sitios.
+
+A continuación una tabla con las medias estimadas por los modelos por localidad, se inclyen los sitios sin reps.
+
+```{r}
 geno2 <- mod_xloc |> 
   unnest(col = emm) |> 
   select(sitio, hibrido, estimate, std.error)
@@ -194,21 +209,34 @@ plot(m0)
 ```
 
 ```{r}
+check_homogeneity(m0)  # levene no anda
+check_normality(m0, effects = "fixed") |> plot(type = "qq")
+check_normality(m0, effects = "random") |> plot(type = "qq")
+```
+
+La normalidad bastante bien, salvo el efecto fijo un poco mas variable (desvios en los extremos).
+
+```{r}
 # Anova efectos fijos
 anova(m0)
 ```
 
-Segun esto el efecto del tratamiento no es significativo.
+Segun esto diferencias entre hibridos globalmente
 
 ```{r}
 # Anova efectos aleatorios
 ranova(m0)
 ```
 
+Los efectos aleatorios sin significativos. Interaccion hibrido sitio.
 
 ```{r}
 VarCorr(m0)
 ```
+
+Gran parte se lleva el sitio pero entre sitio y su interaccion con hibrido casi 75%.
+
+Las medias globales de cada sitio:
 
 ```{r}
 lsm <- emmeans(m0, ~hibrido)
@@ -218,16 +246,29 @@ lsm
 
 ```{r}
 # Comaracion dosis individuales vs control
-contrast(lsm, method = "trt.vs.ctrl")
+contrast(lsm, method = "trt.vs.ctrl", ref = "SYN_3970_CL") |> 
+  as_tibble() |> 
+  arrange(estimate)
 ```
+
+EL hibrido de referencia le gana a los `CACIQUE` y `NUSOL`. Luego no difiere del resto.
 
 ```{r}
 # Comaracion dosis individuales vs control
-contrast(lsm, method = "pairwise")
+# contrast(lsm, method = "pairwise")
+cld(lsm, reversed = T)
 ```
 
+## Tabla coloreada
+
 ```{r}
-cld(lsm)
+source("create_tbl_genxloc.R")
+create_tbl_genxloc(
+  genotypes = hibrido,
+  locations = sitio,
+  response = estimate,
+  data = geno2
+)
 ```
 
 
