@@ -3,12 +3,44 @@
 
 ![](figs/0_aapre_seba.png){fig-align="center" heigth="50"}
 
-# Sitios experimentales {.unnumbered}
+## Sitios experimentales {.unnumbered}
 
 ![Localización de sitios experimentales](/mapa.png){fig-align="center"}
 
-## Empresas participantes {.unnumbered}
+## Objetivo general 
 
-![](figs/patrocinantes.png){fig-align="center"}
+Generar y difundir información sobre el manejo del girasol en distintos ambientes para brindar sustentabilidad a los sistemas productivos mediante el trabajo en red.
+
+## Objetivos específicos 
+
+### Línea genética	
+
+- Evaluar la respuesta en rendimiento (y calidad) de los genotipos de girasol en lotes de producción. 
+- Evaluar el comportamiento de los genotipos ante Phomopsis y vuelco.	
+
+*Producto:* Genotipo de mayor rendimiento por ambiente
+
+### Linea Nutrición	
+
+- Evaluar la respuesta en rendimiento (y calidad) del agregado de N en el cultivo de girasol. 
+- Evaluar el impacto de la fertilización nitrogenada con la sanidad del cultivo (foco en Phomopsis) y el vuelco. 
+
+ Analizar la relación costo-beneficio del tratamiento de fertilización nitrogenada	
+
+*Producto:*Dosis optima de nitrogeno por ambiente. Entendimiento la relación entre disponibilad de N y impacto de phomopsis
+
+### Linea Fungicida	
+
+- Evaluar la respuesta en rendimiento de la protección con fungicida en el cultivo de girasol
+- Entender que factores de manejo y ambiente son los más relevantes en determinar la respuesta productiva
+- Analizar la relación costo-beneficio del tratamiento de fungicida	
+
+*Producto:* Respuesta en rendimiento a fungicida por ambiente y entendimiento de la interacción respuesta-ambiente
+
+### Línea Densidad	
+
+- Evaluar la asociación entre rendimiento y densidad de cultivo de girasol	
+
+*Producto:* Densidad de siembra optima por ambiente
 
 
