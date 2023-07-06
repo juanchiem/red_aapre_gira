@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 WKT,Nombre,Regional,siembra
 POINT (-61.64786 -38.2505818),Laura Cutini,Regional Bahia Blanca,20/10
 POINT (-62.0295133 -38.1536451),Laura Cutini,Regional Bahía Blanca,5/11
@@ -11,4 +12,19 @@ POINT (-58.6663296 -38.5251349),Julian Valdez,Regional Necochea,24/10
 POINT (-59.5509111 -37.2749753),Segundo Fernandez Paez,Regional Tandilia,4/11
 POINT (-63.0782576 -36.4599058),Juan Peralta,Regional Trenque lauquen,14/10
 POINT (-60.706359 -38.0873764),Adrian Etcheto,Regional Tres Arroyos,7/11
+=======
+WKT,Nombre,Regional,siembra
+POINT (-61.64786 -38.2505818),Laura Cutini,Regional Bahia Blanca,20/10
+POINT (-62.0295133 -38.1536451),Laura Cutini,Regional Bahía Blanca,5/11
+POINT (-58.7263101 -35.8425917),Tomás Ibarrazola,Regional Cuenca del salado,3/12
+POINT (-63.235402 -37.109452),Ernesto Jauregui,Regional Guamini-Carhue,1/11
+POINT (-57.154116 -37.0549146),Emanuel Vilella,Regional JMF,14/10
+POINT (-58.1487873 -38.3632864),Hugo Gonzalez,Regional JMF,7/10
+POINT (-64.065535 -36.1142191),Franco Vazquez,Regional La Pampa,20/10
+POINT (-62.36551 -37.0024),Federico Comisso,Regional Las Encadenadas,
+POINT (-58.6663296 -38.5251349),Julian Valdez,Regional Necochea,24/10
+POINT (-59.5509111 -37.2749753),Segundo Fernandez Paez,Regional Tandilia,4/11
+POINT (-63.0782576 -36.4599058),Juan Peralta,Regional Trenque lauquen,14/10
+POINT (-60.706359 -38.0873764),Adrian Etcheto,Regional Tres Arroyos,7/11
+>>>>>>> 5922819ef2c330ffbb14b80ea828cf367ebbb3ba
 POINT (-60.1230265 -38.6569562),Adrian Etcheto,Regional Tres Arroyos,31/10
