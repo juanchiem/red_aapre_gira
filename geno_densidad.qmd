@@ -1,6 +1,8 @@
 ---
 title: "Genetica + densidad"
 format: html
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r include=FALSE}
@@ -10,38 +12,31 @@ library(tidyverse)
 library(rio)
 library(huxtable)
 # library(ggstance)
-library(huxtable)
 # library(patchwork)
-# library(lme4)
+library(lme4)
 # library(nlme)
-# library(emmeans)
-# library(multcomp)
-# library(performance)
-
+library(emmeans)
+library(multcomp)
+library(performance)
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflict_prefer("select", "dplyr")
-
 theme_set(theme_bw(base_size = 12)) 
+source(here::here("rinde_ajustado.R"))
 ```
 
-```{r}
-geno_raw <- import("data/Planilla Girasol 2023.xlsx", sheet="Germoplasma + densidad") %>% 
-  janitor::clean_names() 
-# glimpse(geno_raw)
-# geno_raw %>% names %>% sort
-```
+```{r solo importar luego de updates de los datos, eval=FALSE}
+library(googlesheets4)
+gs4_deauth()
+sheet_url <- "https://docs.google.com/spreadsheets/d/1PxPrPQmfVrJos_YyYkcqRf1fELkQptYuo0xMhJoifyY/edit?usp=sharing"
 
-```{r, eval=FALSE}
-geno_raw %>% 
-  select("nombre_tratamiento", "sitio", rendimiento, mat_grasa_mtra_limpia_sss) %>% pull(rendimiento)
-```
+sheet_online <- sheet_url %>% gs4_get()
 
-```{r}
-hum_recibo <- 11
-bonif <- 42
+sheet_online %>% 
+  range_read(sheet="gen_dens")%>% 
+  janitor::clean_names()-> geno_dens_raw
 
-geno_raw %>% 
-  mutate(across(c("germoplasma", "sitio"), 
+geno_dens_raw %>% 
+  mutate(across(c("hibrido", "sitio", "antecesor"), 
                 ~stringi::stri_trans_general(
                   #pasar a mayusculas y sacar puntos
                   str_to_upper(gsub(',', '\\.', 
@@ -51,47 +46,64 @@ geno_raw %>%
                                     ))), "Latin-ASCII"))) %>% 
   mutate_at(vars(rendimiento, mat_grasa_mtra_limpia_sss, humedad_a_cosecha_percent), 
             as.numeric) %>% 
+  mutate(hibrido = str_replace_all(hibrido, "INSUN_211CL", "INSUN_211_CL")) %>% 
+  mutate(hibrido = str_replace_all(hibrido, "ACA_416_CLDM", "ACA_216_CLDM")) %>% 
+  mutate(hibrido = str_replace_all(hibrido, "PARAISO_1800CP", "NUSOL_4180_CL_PLUS")) %>% 
+  mutate(hibrido = str_replace_all(hibrido, "RGT_4260CL", "RAGT_4260_MAX-CL_G-2E")) %>% 
   mutate_at(vars(densidad), as.factor) %>% 
-  # select(rendimiento, humedad_a_cosecha_percent, mat_grasa_mtra_limpia_sss) %>% 
-  drop_na(rendimiento,mat_grasa_mtra_limpia_sss) %>% 
-  # pull(mat_grasa_mtra_limpia_sss)
+  drop_na(rendimiento, mat_grasa_mtra_limpia_sss) %>% 
   mutate(
-     agua = rendimiento*humedad_a_cosecha_percent/100,
-     rinde_seco = rendimiento - agua, 
-     rinde_bonif = rinde_seco * (1 + (mat_grasa_mtra_limpia_sss - bonif) * 2/100),
-     rinde_final_11 = rinde_bonif*(1+hum_recibo/100)
-         ) -> geno
-    # )%>%
+    rinde_11 = ajustar_por_humedad(rendimiento,
+                                   humedad_a_cosecha=humedad_a_cosecha_percent,
+                                   hum_recibo = 11),
+    rinde_bonificado = ajustar_por_aceite(rinde_11,
+                                     aceite_porcen=mat_grasa_mtra_limpia_sss)) -> geno_dens 
+
+geno_dens %>% rio::export("data/geno_densidad.csv")
 ```
 
-```{r, }
-geno %>%   
-  select(rendimiento, humedad_a_cosecha_percent, mat_grasa_mtra_limpia_sss,
-         agua,rinde_seco,rinde_bonif, rinde_final_11) %>% 
-  head() %>% 
-  as_hux() %>% 
-  set_font_size(9) %>% 
-  theme_compact() %>% 
-  set_tb_padding(.05)
+```{r}
+geno_dens <-rio::import("data/geno_densidad.csv")
+```
+
+## Sitios Experimentales 
+
+```{r}
+geno_dens %>% 
+  distinct(sitio, .keep_all = T) %>% 
+  select(responsable:fecha_de_siembra)
 ```
 
 ## Genética
 
-```{r}
-geno %>% 
-  count(germoplasma) %>% 
-  as_hux() %>% 
-  set_font_size(9) %>% 
-  theme_compact() %>% 
-  set_tb_padding(.05)
+```{r, eval=FALSE}
+geno_dens %>% 
+  count(hibrido) %>%
+  arrange(n)
+  
+
+geno_dens %>% 
+  filter(str_detect(ensayo, "gen")) %>%
+  filter(str_detect(densidad, "Estandar")) %>%
+  drop_na(rendimiento) %>% 
+  xtabs(~ hibrido + sitio, .)
 ```
+
+```{r geno: datos con densidad estandar, eval=FALSE}
+geno_dens %>% 
+  filter(str_detect(ensayo, "gen")) %>%
+  filter(str_detect(densidad, "Estandar")) -> geno
+```
+
+### Análisis intra-localidad
+
 ```{r echo=FALSE, eval=TRUE, results='asis'}
-map(
+rindes_plot <- map(
   geno %>% distinct(sitio) %>% pull(sitio), 
   ~ geno %>% 
     filter(str_detect(ensayo, "gen"), sitio==.x) %>% 
     ggplot() +
-    aes(x=germoplasma, y=rinde_final_11)+
+    aes(x=hibrido, y=rinde_bonificado)+
     geom_point() + 
     # facet_wrap("sitio", ncol = 2)+
     stat_summary(fun="mean", geom = "crossbar", width=.2, col="red") + 
@@ -100,10 +112,68 @@ map(
     stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) + 
     labs(title=.x)  
 )
+rindes_plot
+```
+
+```{r double-check sitio individual , eval=FALSE}
+geno %>% 
+  filter(sitio=="GUAMINI") %>% 
+  arrange(hibrido)
+```
+
+#--------
+# ACA VA EL ANOVA INTRA SITIO - SOLO PARA AQUELLOS CON RFANJAS REPETIDAS 
+#--------
+```{r}
+geno %>% 
+  count(sitio, hibrido) %>% 
+  pull
+```
+
+### Análisis multi-localidad
+
+```{r}
+geno %>% 
+  count(hibrido) %>%
+  filter(n>4) %>% 
+  pull(hibrido) -> hibridos_para_analisis_global
+
+geno %>% 
+  filter(hibrido %in% hibridos_para_analisis_global)  %>% 
+  count(hibrido) %>% 
+  as_hux() %>% 
+  set_font_size(9) %>% 
+  theme_compact() %>% 
+  set_tb_padding(.05)
+
+geno %>% 
+  filter(hibrido %in% hibridos_para_analisis_global) -> geno_multi
+
+```
+
+```{r}
+geno_multi %>% 
+  drop_na(rendimiento) %>% 
+  xtabs(~ hibrido + sitio, .)
+## FALTA PARAISO_1800_CL_PLUS en TRES ARROYOS CONTINENTAL, el resto esta al menos una vez
+
+```
+
+#--------
+# ACA VA EL ANOVA INTER SITIO 
+#--------
+```{r}
+
 ```
 
 
 ## Densidad
+
+```{r}
+geno_dens %>% #count(ensayo)
+  filter(str_detect(ensayo, "densidad")) -> densidad
+```
+
 
 ```{r, fig.height=10}
 geno %>% 
@@ -120,5 +190,20 @@ geno %>%
     stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) +
     stat_summary(fun=mean, colour="red", geom="line", aes(group = 1))
 
+```
+
+### SOLO SYN_3970_CL (n=40)
+
+```{r}
+library(ggrepel)
+geno_dens %>% #names %>% sort
+  filter(hibrido=="SYN_3970_CL") %>% 
+  ggplot() + 
+  aes(x=plantas_ha, y=rinde_bonificado,col=sitio, group=1)+
+  geom_point() + 
+  geom_smooth(se=F, alpha=.1, col="grey70") +
+  geom_text_repel(aes(label=sitio), size=2) +
+  labs(title="Solo SYN_3970_CL") +
+  guides(col="none")
 ```
 
