@@ -26,44 +26,6 @@ theme_set(theme_bw(base_size = 12))
 source(here::here("rinde_ajustado.R"))
 ```
 
-```{r solo importar luego de updates de los datos, eval=FALSE}
-library(googlesheets4)
-gs4_deauth()
-sheet_url <- "https://docs.google.com/spreadsheets/d/1PxPrPQmfVrJos_YyYkcqRf1fELkQptYuo0xMhJoifyY/edit?usp=sharing"
-
-sheet_online <- sheet_url %>% gs4_get()
-
-sheet_online %>% 
-  range_read(sheet="gen_dens")%>% 
-  janitor::clean_names()-> geno_dens_raw
-
-geno_dens_raw %>% 
-  mutate(across(c("hibrido", "sitio", "antecesor"), 
-                ~stringi::stri_trans_general(
-                  #pasar a mayusculas y sacar puntos
-                  str_to_upper(gsub(',', '\\.', 
-                                    # sacar espacios antes-desp
-                                    str_trim(
-                                      str_replace_all(., fixed(" "), "_")
-                                    ))), "Latin-ASCII"))) %>% 
-  mutate_at(vars(rendimiento, mat_grasa_mtra_limpia_sss, humedad_a_cosecha_percent), 
-            as.numeric) %>% 
-  mutate(hibrido = str_replace_all(hibrido, "INSUN_211CL", "INSUN_211_CL")) %>% 
-  mutate(hibrido = str_replace_all(hibrido, "ACA_416_CLDM", "ACA_216_CLDM")) %>% 
-  mutate(hibrido = str_replace_all(hibrido, "PARAISO_1800CP", "NUSOL_4180_CL_PLUS")) %>% 
-  mutate(hibrido = str_replace_all(hibrido, "RGT_4260CL", "RAGT_4260_MAX-CL_G-2E")) %>% 
-  mutate_at(vars(densidad), as.factor) %>% 
-  drop_na(rendimiento, mat_grasa_mtra_limpia_sss) %>% 
-  mutate(
-    rinde_11 = ajustar_por_humedad(rendimiento,
-                                   humedad_a_cosecha=humedad_a_cosecha_percent,
-                                   hum_recibo = 11),
-    rinde_bonificado = ajustar_por_aceite(rinde_11,
-                                     aceite_porcen=mat_grasa_mtra_limpia_sss)) -> geno_dens 
-
-geno_dens %>% rio::export("data/geno_densidad.csv")
-```
-
 ```{r}
 geno_dens <-rio::import("data/geno_densidad.csv")
 ```
