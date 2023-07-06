@@ -281,12 +281,10 @@ geno_dens %>% #count(ensayo)
 
 
 ```{r, fig.height=10}
-geno %>% 
-    filter(str_detect(ensayo, "densidad")) %>% 
-    # distinct(densidad) %>% 
+densidad %>% 
     mutate(densidad=  fct_relevel(densidad, "Menos 30%", "Estandar", "Mas 30%")) %>% 
     ggplot() +
-    aes(x=densidad, y=rinde_final_11)+
+    aes(x=densidad, y=rinde_bonificado)+
     geom_point() + 
     facet_wrap("sitio", ncol = 2)+
     stat_summary(fun="mean", geom = "crossbar", width=.2, col="red") + 
@@ -310,5 +308,42 @@ geno_dens %>% #names %>% sort
   geom_text_repel(aes(label=sitio), size=2) +
   labs(title="Solo SYN_3970_CL") +
   guides(col="none")
+```
+
+```{r}
+mod_dens_cat <- densidad |> 
+  filter(sitio != "LA_PAMPA") |> 
+  group_nest(sitio) |> 
+  mutate(
+    m_dens = map(data, ~ lm(rinde_bonificado ~ densidad, .x)),
+    res = map(m_dens, ~ glance(.x))
+
+  ) |> 
+  unnest(res)
+mod_dens_cat
+```
+
+
+```{r}
+mod_pl <- densidad |> 
+  filter(sitio != "LA_PAMPA") |> 
+  group_nest(sitio) |> 
+  mutate(
+    m_pl = map(data, ~ lm(rinde_11 ~ plantas_ha, .x)),
+    m_pl2 = map(data, ~ lm(rinde_11 ~ plantas_ha + I(plantas_ha**2), .x)),
+    res = map(m_pl2, ~ glance(.x))
+  ) |> 
+  unnest(res)
+mod_pl
+```
+
+```{r}
+m_dens1 <- lm(rinde_bonificado ~ plantas_ha, densidad)
+m_dens1 <- lm(rinde_bonificado ~ plantas_ha + I(plantas_ha^2), densidad |> filter(hibrido=="SYN_3970_CL")) 
+m_dens2 <- lm(rinde_bonificado ~ sitio * (plantas_ha + I(plantas_ha^2)), densidad |>   filter(hibrido=="SYN_3970_CL")) 
+anova(m_dens1, m_dens2)
+
+compare_performance(m_dens1, m_dens2)
+summary(m_dens2)
 ```
 
