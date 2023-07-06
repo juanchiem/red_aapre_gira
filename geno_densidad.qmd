@@ -124,11 +124,31 @@ geno %>%
 #--------
 # ACA VA EL ANOVA INTRA SITIO - SOLO PARA AQUELLOS CON RFANJAS REPETIDAS 
 #--------
+
 ```{r}
 geno %>% 
-  count(sitio, hibrido) %>% 
-  pull
+  count(sitio, hibrido)
 ```
+
+```{r}
+mod_xloc <- geno |>
+  group_nest(sitio) |> 
+  mutate(
+    m = map(data, ~ lm(rinde_bonificado ~ hibrido + repeticion, .x)),
+    pval = map(m, ~ anova(.x) |> tidy() |> filter(term == "hibrido") |> pull(p.value)),
+    emm = map(m, ~ emmeans(.x, ~ hibrido) |> tidy())
+  ) 
+
+mod_xloc |> 
+  unnest(cols = pval) |> 
+  select(sitio, pval)
+
+geno2 <- mod_xloc |> 
+  unnest(col = emm) |> 
+  select(sitio, hibrido, estimate, std.error)
+geno2
+```
+
 
 ### Análisis multi-localidad
 
@@ -162,8 +182,52 @@ geno_multi %>%
 #--------
 # ACA VA EL ANOVA INTER SITIO 
 #--------
-```{r}
 
+
+```{r}
+# Modelo con interacción tratamiento factor
+m0 <- lmerTest::lmer(
+  rinde_bonificado ~ hibrido + (1 | hibrido:sitio) + (1|sitio/repeticion),
+  data = geno_multi
+)
+plot(m0)
+```
+
+```{r}
+# Anova efectos fijos
+anova(m0)
+```
+
+Segun esto el efecto del tratamiento no es significativo.
+
+```{r}
+# Anova efectos aleatorios
+ranova(m0)
+```
+
+
+```{r}
+VarCorr(m0)
+```
+
+```{r}
+lsm <- emmeans(m0, ~hibrido)
+lsm
+```
+
+
+```{r}
+# Comaracion dosis individuales vs control
+contrast(lsm, method = "trt.vs.ctrl")
+```
+
+```{r}
+# Comaracion dosis individuales vs control
+contrast(lsm, method = "pairwise")
+```
+
+```{r}
+cld(lsm)
 ```
 
 
