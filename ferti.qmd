@@ -209,11 +209,11 @@ summary(m_lin)
 modelos_xloc <- ferti |> 
   group_nest(sitio) |> 
   mutate(
-    m = map(data, ~ lm(rinde_final_11 ~ tratamiento, .x)),
+    m = map(data, ~ lm(rinde_final_11 ~ repeticion + tratamiento, .x)),
     pval_trt = map(m, ~ anova(.x) |> tidy() |> filter(term == "tratamiento") |> pull(p.value)),
-    m_lin = map(data, ~ lm(rinde_final_11 ~ N, .x)),
+    m_lin = map(data, ~ lm(rinde_final_11 ~ repeticion + N, .x)),
     pval_N = map(m_lin, ~ anova(.x) |> tidy() |> filter(term == "N") |> pull(p.value)),
-    beta = map(m_lin, ~ coef(.x)[2])
+    beta = map(m_lin, ~ coef(.x)[3])
   ) 
 
 modelos_xloc |> 
