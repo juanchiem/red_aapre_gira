@@ -138,15 +138,15 @@ create_tbl_genxloc <- function(
     tab_spanner(label = as_label(locations), columns= -c(!!genotypes, Promedio, CV))
   
   # Sticky headers
-  tbl <- tbl |>
-    tab_options(
-      container.overflow.y = T,
-      container.height = px(400)
-    ) |> 
-    tab_style(
-      style = css(position = "sticky", top = 0),
-      locations = cells_column_labels()
-    )
+  # tbl <- tbl |>
+  #   tab_options(
+  #     container.overflow.y = T,
+  #     container.height = px(400)
+  #   ) |> 
+  #   tab_style(
+  #     style = css(position = "sticky", top = 0),
+  #     locations = cells_column_labels()
+  #   )
   
   # Return gt table
   tbl

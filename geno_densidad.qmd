@@ -108,7 +108,7 @@ mod_xloc <- geno |>
     emm = map(m, ~ emmeans(.x, ~ hibrido) |> tidy()), 
     sw = map(m, ~ resid(.x) |> shapiro.test() |> tidy() |> pull(p.value)),
     lv = map2(m, data, ~ leveneTest(resid(.x) ~ hibrido, .y) |> tidy() |> pull(p.value))
-  ) |> 
+  )  
 
 mod_xloc |> 
   unnest(cols = c(pval, sw, lv)) |> 
@@ -229,8 +229,51 @@ create_tbl_genxloc(
   genotypes = hibrido,
   locations = sitio,
   response = estimate,
-  data = geno2
+  data = geno2 |> filter(hibrido %in% hibridos_para_analisis_global)
 )
+```
+
+
+## Finlay-Wilkinson
+
+```{r}
+# Calcular índice ambiental
+geno2 <- geno2 %>% 
+  filter(hibrido %in% hibridos_para_analisis_global) %>% 
+  group_by(sitio) %>%
+  mutate(IA = mean(estimate)) %>%
+  ungroup()
+
+# Modelos
+m_finlay1 <- lm(estimate ~ sitio + hibrido/IA, na.action = "na.omit",
+                data = geno2)
+anova(m_finlay1)
+m_finlay2 <- lm(estimate ~ hibrido/IA - 1, na.action = "na.omit",
+                data = geno2)
+anova(m_finlay2)
+
+# Betas
+trend_IA <- emtrends(m_finlay2, specs = 'hibrido', var = 'IA', order = T, level = 0.95)
+geno2 <- left_join(
+  geno2, tidy(trend_IA), by = "hibrido"
+)
+```
+
+```{r}
+ggplot(geno2) +
+  aes(x = IA, y = estimate, color = hibrido) +
+    geom_smooth(
+      method = 'lm', se = F, linetype = 'solid', size = 0.5,
+      formula = y ~  x
+    ) + 
+    geom_vline(aes(xintercept = mean(IA, na.rm=T)), col = "gray") +
+    geom_abline(slope = 1, intercept = 0, linetype = 'dashed') +
+    labs(
+      x = 'Índice Ambiental (Kg ha<sup>-1</sup>)',
+      y = "Rinde bonificado"
+    ) +
+    theme_bw(base_size = 8) +
+    theme(panel.grid = element_blank())
 ```
 
 
