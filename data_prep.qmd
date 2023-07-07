@@ -54,8 +54,14 @@ geno_dens %>%
 # fungicidas
 
 ```{r}
-fungi_raw <- rio::import("data/Planilla Girasol 2023.xlsx", sheet="Fungicida") %>% 
-  janitor::clean_names()
+sheet_url <- "https://docs.google.com/spreadsheets/d/1PxPrPQmfVrJos_YyYkcqRf1fELkQptYuo0xMhJoifyY/edit?usp=sharing"
+
+sheet_online <- sheet_url %>% gs4_get()
+
+sheet_online %>% 
+  range_read(sheet="fungi")%>% 
+  janitor::clean_names()-> fungi_raw 
+
 
 fungi_raw %>% 
      mutate(across(c("nombre_tratamiento", "sitio"), 
@@ -73,5 +79,4 @@ fungi_raw %>%
     rinde_bonificado = ajustar_por_aceite(rinde_11,
                                      aceite_porcen=mat_grasa_mtra_limpia_sss)) -> fungi_dat 
 fungi_dat %>% rio::export("data/fungi_dat.csv")
-
 ```

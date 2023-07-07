@@ -1,6 +1,8 @@
 ---
 title: "Fungicida"
 format: html
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r include=FALSE}
@@ -36,23 +38,16 @@ fungi_dat %>%
 
 ```{r}
 fungi_dat %>% 
+  pivot_longer(contains("rinde")) %>% 
   ggplot() +
-  aes(x=sitio, y=rendimiento, col=nombre_tratamiento)+
+  aes(x=sitio, y=value, col=nombre_tratamiento)+
   geom_point() + 
   stat_summary(fun="mean", geom = "crossbar", width=.2) + 
   stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) + 
   coord_flip()+ 
-  labs(col="")
-```
-```{r}
-fungi_dat %>% 
-  ggplot() +
-  aes(x=sitio, y=rinde_bonificado, col=nombre_tratamiento)+
-  geom_point() + 
-  stat_summary(fun="mean", geom = "crossbar", width=.2) + 
-  stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) + 
-  coord_flip()+ 
-  labs(col="")
+  facet_wrap("name") + 
+  labs(col="") 
+
 ```
 
 ```{r}
