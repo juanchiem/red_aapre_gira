@@ -12,7 +12,7 @@ library(tidyverse)
 library(rio)
 library(huxtable)
 library(car)
-library(broom)
+# library(broom)
 # library(ggstance)
 # library(patchwork)
 library(lmerTest)
@@ -20,10 +20,9 @@ library(lmerTest)
 library(emmeans)
 library(multcomp)
 library(performance)
-conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflict_prefer("filter", "dplyr")
 conflicted::conflict_prefer("select", "dplyr")
 theme_set(theme_bw(base_size = 12)) 
-source(here::here("rinde_ajustado.R"))
 ```
 
 ```{r}
@@ -45,7 +44,6 @@ geno_dens %>%
   count(hibrido) %>%
   arrange(n)
   
-
 geno_dens %>% 
   filter(str_detect(ensayo, "gen")) %>%
   filter(str_detect(densidad, "Estandar")) %>%
@@ -53,7 +51,7 @@ geno_dens %>%
   xtabs(~ hibrido + sitio, .)
 ```
 
-```{r geno: datos con densidad estandar, eval=FALSE}
+```{r geno: datos con densidad estandar, eval=TRUE}
 geno_dens %>% 
   filter(str_detect(ensayo, "gen")) %>%
   filter(str_detect(densidad, "Estandar")) -> geno
@@ -85,9 +83,7 @@ geno %>%
   arrange(hibrido)
 ```
 
-#--------
-# ACA VA EL ANOVA INTRA SITIO - SOLO PARA AQUELLOS CON RFANJAS REPETIDAS 
-#--------
+### Analisis INTRA SITIO
 
 ```{r}
 geno %>% 
@@ -96,7 +92,7 @@ geno %>%
   summarise(across(n, list(min = min, max = max)))
 ```
 
-Sitios sin reps o con un solo hibrido repetido: `RIVERA`, `TANDIL`, `SALDUNGARAY`)
+Sitios sin reps o con un solo hibrido repetido: `RIVERA`, `TANDIL`, `SALDUNGARAY`
 
 ```{r}
 mod_xloc <- geno |>
@@ -155,10 +151,6 @@ geno_multi %>%
 ## FALTA PARAISO_1800_CL_PLUS en TRES ARROYOS CONTINENTAL, el resto esta al menos una vez
 
 ```
-
-#--------
-# ACA VA EL ANOVA INTER SITIO 
-#--------
 
 
 ```{r}
@@ -276,7 +268,6 @@ ggplot(geno2) +
     theme(panel.grid = element_blank())
 ```
 
-
 ## Densidad
 
 ```{r}
@@ -351,4 +342,5 @@ anova(m_dens1, m_dens2)
 compare_performance(m_dens1, m_dens2)
 summary(m_dens2)
 ```
+
 

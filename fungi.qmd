@@ -16,17 +16,23 @@ library(huxtable)
 library(skimr)
 library(huxtable)
 # library(patchwork)
-# library(lme4)
+library(lme4)
 # library(nlme)
-# library(emmeans)
-# library(multcomp)
+library(emmeans)
+library(multcomp)
 # library(performance)
 
-conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflict_prefer("filter", "dplyr")
 conflicted::conflict_prefer("select", "dplyr")
+conflicted::conflicts_prefer(dplyr::recode)
+conflicted::conflicts_prefer(lme4::lmer)
 
 theme_set(theme_bw(base_size = 12)) 
-fungi_dat %>% rio::export("data/fungi_dat.csv")
+fungi_dat<- rio::import("data/fungi_dat.csv") %>% 
+  rename()
+  mutate(trt=recode(nombre_tratamiento, SIN_FUNGICIDA = "Check",
+                    CON_FUNGICIDA = "Fungicida")) 
+
 ```
 
 ```{r}
@@ -38,39 +44,51 @@ fungi_dat %>%
 
 ```{r}
 fungi_dat %>% 
-  pivot_longer(contains("rinde")) %>% 
+  pivot_longer(matches("rinde|sss")) %>% 
   ggplot() +
-  aes(x=sitio, y=value, col=nombre_tratamiento)+
+  aes(x=sitio, y=value, col=trt)+
   geom_point() + 
   stat_summary(fun="mean", geom = "crossbar", width=.2) + 
   stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) + 
   coord_flip()+ 
-  facet_wrap("name") + 
+  facet_wrap("name", scale="free_x") + 
   labs(col="") 
+```
+
+```{r}
+mod_glob <- lmer(rinde_bonificado~ trt + (1|sitio/repeticion),
+            data=fungi_dat)
+plot(mod_glob)
+car::Anova(mod_glob, type=3)
+cld(emmeans(mod_glob, ~trt)) %>% 
 
 ```
 
 ```{r}
-fungi_dat %>% #names %>% sort 
-  filter(sitio!="RIVERA") %>% 
-  ggplot() +
-  aes(x=sitio, y=mat_grasa_mtra_limpia_sss, col=nombre_tratamiento)+
-  geom_point() + 
-  stat_summary(fun="mean", geom = "crossbar", width=.2) + 
-  stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) + 
-  coord_flip()+ 
-  labs(col="")
+mod_inter <- lmer(rinde_bonificado~ trt * sitio + (1|sitio/repeticion), 
+                  data=fungi_dat)
+plot(mod_inter)
+car::Anova(mod_inter, type=3)
+res_fungi <- cld(emmeans(mod_inter, ~trt|sitio, alpha=.1)) %>% 
+  group_by(sitio) %>%
+  rename(kg_ha=emmean) %>% 
+  mutate(test_kg_ha = kg_ha[trt == "Check"]) %>% 
+  mutate(dif_kg = kg_ha- test_kg_ha,
+         `dif_%` = (kg_ha/test_kg_ha - 1) * 100) %>% 
+purrr::modify_if(., ~is.numeric(.),~round(., 1)) %>% 
+  filter(trt!="Check") %>%  
+  # filter(sitio!="MDP") %>%  
+  mutate(signif_10 = case_when(
+    .group=="  2"~ "Si", 
+    TRUE~ "No")) %>% 
+  select(fungi_kg_ha = kg_ha, test_kg_ha, dif_kg, "dif_%", "signif_10") 
+
+res_fungi%>% 
+  knitr::kable()
+
+paste0(mean(as.numeric(res_fungi$"dif_%")), 
+       " %")
+
 ```
 
-```{r}
-fungi_dat %>% #names %>% sort 
-  filter(sitio=="RIVERA") %>% 
-  ggplot() +
-  aes(x=sitio, y=mat_grasa_mtra_limpia_sss, col=nombre_tratamiento)+
-  geom_point() + 
-  stat_summary(fun="mean", geom = "crossbar", width=.2) + 
-  stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) + 
-  coord_flip()+ 
-  labs(col="")
-```
 
