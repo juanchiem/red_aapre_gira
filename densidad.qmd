@@ -1,0 +1,92 @@
+---
+title: "Densidad"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = FALSE, message = FALSE)
+source(here::here("setup.R"))
+```
+
+```{r}
+rio::import("data/geno_densidad.csv") %>% #count(ensayo)
+  filter(str_detect(ensayo, "densidad")) -> densidad
+```
+
+
+```{r, fig.height=10}
+densidad %>% 
+    mutate(densidad=  fct_relevel(densidad, "Menos 30%", "Estandar", "Mas 30%")) %>% 
+    ggplot() +
+    aes(x=densidad, y=rinde_bonificado)+
+    geom_point() + 
+    facet_wrap("sitio", ncol = 2)+
+    stat_summary(fun="mean", geom = "crossbar", width=.2, col="red") + 
+    # stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) + 
+    # coord_flip()+
+    stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) +
+    stat_summary(fun=mean, colour="red", geom="line", aes(group = 1))
+
+```
+
+```{r SOLO SYN_3970_CL caza truchos, eval=FALSE}
+library(ggrepel)
+geno_dens %>% #names %>% sort
+  filter(hibrido=="SYN_3970_CL") %>% 
+  ggplot() + 
+  aes(x=plantas_ha, y=rinde_bonificado,col=sitio, group=1)+
+  geom_point() + 
+  geom_smooth(se=F, alpha=.1, col="grey70") +
+  geom_text_repel(aes(label=sitio), size=2) +
+  labs(title="Solo SYN_3970_CL") +
+  guides(col="none")
+```
+
+```{r, eval=T}
+mod_dens_cat <- densidad |> 
+  filter(sitio != "LA_PAMPA") |> 
+  group_nest(sitio) |> 
+  mutate(
+    m_dens = map(data, ~ lm(rinde_bonificado ~ densidad + repeticion, .x)),
+    pval = map(m_dens, ~ anova(.x) |> broom::tidy() |> filter(term == "densidad") |> pull(p.value)),
+    emm = map(m_dens, ~ emmeans(.x, ~ densidad)),
+    # emm = map(m_dens, ~ emmeans(.x, ~ densidad) |> broom::tidy()),
+    cld = map(emm, ~ cld(.x, alpha=.1, Letters=letters, reversed=TRUE)|> broom::tidy())
+    )  
+
+mod_dens_cat %>% 
+  unnest(cols = c(pval, cld))  %>% 
+  select(-data,-emm, -m_dens, rinde_medio=estimate, -df) %>% 
+  na.omit() %>%
+  mutate(densidad = as.factor(densidad)) %>% 
+  mutate(densidad = fct_relevel(densidad, "Menos 30%", "Estandar")) %>% 
+  arrange(sitio, densidad) %>% 
+  hux(.,2)
+```
+
+
+```{r, eval=FALSE}
+mod_pl <- densidad |> 
+  filter(sitio != "LA_PAMPA") |> 
+  group_nest(sitio) |> 
+  mutate(
+    m_pl = map(data, ~ lm(rinde_11 ~ plantas_ha, .x)),
+    m_pl2 = map(data, ~ lm(rinde_11 ~ plantas_ha + I(plantas_ha**2), .x)),
+    res = map(m_pl2, ~ glance(.x))
+  ) |> 
+  unnest(res)
+mod_pl
+```
+
+```{r}
+m_dens1 <- lm(rinde_bonificado ~ plantas_ha, densidad)
+m_dens1 <- lm(rinde_bonificado ~ plantas_ha + I(plantas_ha^2), densidad |> filter(hibrido=="SYN_3970_CL")) 
+m_dens2 <- lm(rinde_bonificado ~ sitio * (plantas_ha + I(plantas_ha^2)), densidad |>   filter(hibrido=="SYN_3970_CL")) 
+anova(m_dens1, m_dens2)
+
+compare_performance(m_dens1, m_dens2)
+summary(m_dens2)
+```
+

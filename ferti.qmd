@@ -5,23 +5,7 @@ format: html
 
 ```{r include=FALSE}
 knitr::opts_chunk$set(echo = F, warning = FALSE, message = FALSE)
-
-library(tidyverse) 
-library(rio)
-library(lmerTest)
-library(broom)
-# library(ggstance)
-library(huxtable)
-# library(patchwork)
-# library(nlme)
-library(emmeans)
-# library(multcomp)
-# library(performance)
-
-conflicted::conflicts_prefer(dplyr::filter)
-conflicted::conflict_prefer("select", "dplyr")
-
-theme_set(theme_bw(base_size = 12)) 
+source(here::here("setup.R"))
 ```
 
 ```{r}
@@ -30,16 +14,9 @@ ferti_raw <- import("data/Planilla Girasol 2023.xlsx", sheet="Fertilización") %
 ```
 
 ```{r}
-# ferti_raw %>% names %>% sort
-```
-
-```{r}
 ferti_raw %>% 
   count(tratamiento) %>% 
-  as_hux() %>% 
-  set_font_size(9) %>% 
-  theme_compact() %>% 
-  set_tb_padding(.05)
+  hux(.,0)  
 ```
 
 Preparando los datos

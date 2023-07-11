@@ -7,32 +7,13 @@ editor_options:
 
 ```{r include=FALSE}
 knitr::opts_chunk$set(echo = F, warning = FALSE, message = FALSE)
+source(here::here("setup.R"))
 ```
 
 ```{r }
-library(tidyverse) 
-library(rio)
-library(huxtable)
-library(skimr)
-library(huxtable)
-# library(patchwork)
-library(lme4)
-# library(nlme)
-library(emmeans)
-library(multcomp)
-# library(performance)
-
-conflicted::conflict_prefer("filter", "dplyr")
-conflicted::conflict_prefer("select", "dplyr")
-conflicted::conflicts_prefer(dplyr::recode)
-conflicted::conflicts_prefer(lme4::lmer)
-
-theme_set(theme_bw(base_size = 12)) 
 fungi_dat<- rio::import("data/fungi_dat.csv") %>% 
-  rename()
   mutate(trt=recode(nombre_tratamiento, SIN_FUNGICIDA = "Check",
                     CON_FUNGICIDA = "Fungicida")) 
-
 ```
 
 ```{r}
@@ -60,8 +41,7 @@ mod_glob <- lmer(rinde_bonificado~ trt + (1|sitio/repeticion),
             data=fungi_dat)
 plot(mod_glob)
 car::Anova(mod_glob, type=3)
-cld(emmeans(mod_glob, ~trt)) %>% 
-
+cld(emmeans(mod_glob, ~trt)) 
 ```
 
 ```{r}
@@ -86,9 +66,7 @@ purrr::modify_if(., ~is.numeric(.),~round(., 1)) %>%
 res_fungi%>% 
   knitr::kable()
 
-paste0(mean(as.numeric(res_fungi$"dif_%")), 
-       " %")
-
+# paste0(mean(as.numeric(res_fungi$"dif_%")),  " %")
 ```
 
 

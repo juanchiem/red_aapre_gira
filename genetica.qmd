@@ -1,0 +1,277 @@
+---
+title: "Genética"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = FALSE, message = FALSE)
+source(here::here("setup.R"))
+```
+
+```{r}
+geno_dens <-rio::import("data/geno_densidad.csv")
+```
+
+```{r, eval=FALSE}
+geno_dens %>% 
+  count(hibrido) %>%
+  arrange(n)
+  
+geno_dens %>% 
+  filter(str_detect(ensayo, "gen")) %>%
+  filter(str_detect(densidad, "Estandar")) %>%
+  drop_na(rendimiento) %>% 
+  xtabs(~ hibrido + sitio, .)
+```
+
+```{r geno: datos con densidad estandar, eval=TRUE}
+geno_dens %>% 
+  filter(str_detect(ensayo, "gen")) %>%
+  filter(str_detect(densidad, "Estandar")) -> geno
+```
+
+## Análisis intra-sitio
+
+```{r echo=FALSE, eval=F, results='asis'}
+rindes_plot <- map(
+  geno %>% distinct(sitio) %>% pull(sitio), 
+  ~ geno %>% 
+    filter(str_detect(ensayo, "gen"), sitio==.x) %>% 
+    ggplot() +
+    aes(x=hibrido, y=rinde_bonificado)+
+    geom_point() + 
+    # facet_wrap("sitio", ncol = 2)+
+    stat_summary(fun="mean", geom = "crossbar", width=.2, col="red") + 
+    # stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) + 
+    coord_flip()+
+    stat_summary(fun=mean, aes(label=round(after_stat(y))), geom="text", size=3, vjust=-.5) + 
+    labs(title=.x)  
+)
+rindes_plot
+```
+
+```{r double-check sitio individual , eval=FALSE}
+geno %>% 
+  filter(sitio=="GUAMINI") %>% 
+  arrange(hibrido)
+```
+
+```{r, eval=F}
+geno %>% 
+  count(sitio, hibrido) |> 
+  group_by(sitio) |> 
+  summarise(across(n, list(min = min, max = max)))
+```
+
+Sitios sin reps o con un solo hibrido repetido: `RIVERA`, `TANDIL`, `SALDUNGARAY`
+
+```{r FUNCIONA OK, eval=FALSE}
+mod_xloc <- geno |>
+  filter(!sitio %in% c("RIVERA", "TANDIL", "SALDUNGARAY")) |> 
+  group_nest(sitio) |> 
+  mutate(
+    m = map(data, ~ lm(rinde_bonificado ~ hibrido + repeticion, .x))
+    )
+
+mod_xloc %>%
+  mutate(
+    # pval = map(m, ~ anova(.x) |> tidy() |> filter(term == "hibrido") |> pull(p.value)),
+    emm = map(m, ~ emmeans(.x, ~ hibrido) |> tidy()))-> res_xloc
+    # sw = map(m, ~ resid(.x) |> shapiro.test() |> tidy() |> pull(p.value)),
+    # lv = map2(m, data, ~ leveneTest(resid(.x) ~ hibrido, .y) |> tidy() |> pull(p.value))
+    # ) |>
+  # unnest(cols = c(pval, sw, lv))-> res_xloc
+# 
+# res_xloc |> select(sitio, pval, sw, lv) 
+```
+
+```{r}
+mod_xloc <- geno |>
+  filter(!sitio %in% c("RIVERA", "TANDIL", "SALDUNGARAY")) |> 
+  group_nest(sitio) |> 
+  mutate(
+    m = map(data, ~ lm(rinde_bonificado ~ hibrido + repeticion, .x)),
+    pval = map(m, ~ anova(.x) |> broom::tidy() |> filter(term == "hibrido") |> pull(p.value)),
+    emm = map(m, ~ emmeans(.x, ~ hibrido) |> broom::tidy()), 
+    sw = map(m, ~ resid(.x) |> shapiro.test() |> broom::tidy() |> pull(p.value)),
+    lv = map2(m, data, ~ leveneTest(resid(.x) ~ hibrido, .y) |> broom::tidy() |> pull(p.value))
+  )  
+
+mod_xloc |> 
+  unnest(cols = c(pval, sw, lv)) |> 
+  mutate(signif_10=if_else(pval<0.1, "ok", "x")) %>% 
+  mutate(homoced=if_else(lv>0.05, "ok", "x")) %>% 
+  mutate(normalidad=if_else(sw>0.05, "ok", "x"))%>%
+  select(sitio, signif_10, homoced, normalidad) 
+```
+
+En algunos sitios no se cumplen los supuestos pero por otro lado, teniendo rep = 2 medio complicado. En general se detectan diferencias en la mayoría de los sitios, salvo MDP, TORNQUIST yTRENQUE_LAUQUEN
+
+A continuación una tabla con las medias estimadas por los modelos por localidad, se inclyen los sitios sin reps.
+
+```{r}
+geno2 <- mod_xloc |> 
+  unnest(col = emm) |> 
+  select(sitio, hibrido, estimate, std.error)
+geno2
+```
+
+## Análisis red
+
+```{r}
+geno %>% 
+  count(hibrido) %>%
+  filter(n>4) %>% 
+  pull(hibrido) -> hibridos_para_analisis_global
+
+geno %>% 
+  filter(hibrido %in% hibridos_para_analisis_global)  %>% 
+  count(hibrido) %>% 
+  hux(.,0) 
+
+geno %>% 
+  filter(hibrido %in% hibridos_para_analisis_global) -> geno_multi
+```
+
+
+```{r eval=F}
+geno_dens %>%   
+  filter(responsable == "Ernesto Jauregui") %>% 
+  select(responsable, hibrido, matches("rinde|rendim"))  %>%
+  arrange(-rinde_bonificado)
+```
+
+
+```{r, eval=FALSE}
+geno_multi %>% 
+  drop_na(rendimiento) %>% 
+  xtabs(~ hibrido + sitio, .)
+```
+
+
+```{r, fig.show='hide'}
+# Modelo con interacción tratamiento factor
+m0 <- lmerTest::lmer(
+  rinde_bonificado ~ hibrido + (1 | hibrido:sitio) + (1|sitio/repeticion),
+  data = geno_multi
+)
+plot(m0)
+```
+
+```{r, fig.show='hide'}
+check_homogeneity(m0)  # levene no anda
+check_normality(m0, effects = "fixed") |> plot(type = "qq")
+check_normality(m0, effects = "random") |> plot(type = "qq")
+```
+
+La normalidad bastante bien, salvo el efecto fijo un poco mas variable (desvios en los extremos).
+
+```{r}
+# Anova efectos fijos
+car::Anova(m0, type=3) %>% 
+  knitr::kable()
+```
+
+Segun esto diferencias entre hibridos globalmente
+
+```{r}
+# Anova efectos aleatorios
+ranova(m0)%>% 
+  knitr::kable()
+```
+
+Los efectos aleatorios son significativos. Interaccion hibrido sitio.
+
+```{r}
+as.data.frame(VarCorr(m0)) %>% 
+  mutate(prop_var = sdcor / sum(sdcor)) %>% 
+  select(grp, prop_var) %>% 
+  hux(.,2)
+
+```
+
+- 60% de la variabilidad la explica el sitio, 
+- 75% de la variabilidad la explica el sitio y su interaccion con hibrido
+
+Las medias globales de cada sitio:
+
+```{r}
+lsm <- emmeans(m0, ~hibrido)
+hux(lsm,0)
+```
+
+
+```{r}
+# Comaracion dosis individuales vs control
+contrast(lsm, method = "trt.vs.ctrl", ref = "SYN_3970_CL") |> 
+  as_tibble() |> 
+  arrange(estimate)
+```
+
+- EL hibrido de referencia (SYN_3970_CL) solo le gana a los `CACIQUE`, `NUSOL` y `ZT_74L68_CL`
+
+```{r}
+# Comaracion dosis individuales vs control
+# contrast(lsm, method = "pairwise")
+cld(lsm, reversed = T, Letters = letters, alpha=0.1) %>% 
+  unite("IC_95%", lower.CL, upper.CL, sep = ";", remove = TRUE) %>% 
+  select(hibrido, rinde_medio=emmean, "IC_95%", tukey_10=.group) %>%
+  hux(.,0)
+```
+
+## Tabla híbridos x sitio
+
+```{r}
+source("create_tbl_genxloc.R")
+create_tbl_genxloc(
+  genotypes = hibrido,
+  locations = sitio,
+  response = estimate,
+  data = geno2 |> filter(hibrido %in% hibridos_para_analisis_global)
+)
+```
+
+## Finlay-Wilkinson
+
+```{r}
+# Calcular índice ambiental
+geno2 <- geno2 %>% 
+  filter(hibrido %in% hibridos_para_analisis_global) %>% 
+  group_by(sitio) %>%
+  mutate(IA = mean(estimate)) %>%
+  ungroup()
+
+# Modelos
+m_finlay1 <- lm(estimate ~ sitio + hibrido/IA, na.action = "na.omit",
+                data = geno2)
+anova(m_finlay1)
+m_finlay2 <- lm(estimate ~ hibrido/IA - 1, na.action = "na.omit",
+                data = geno2)
+anova(m_finlay2)
+
+# Betas
+trend_IA <- emtrends(m_finlay2, specs = 'hibrido', var = 'IA', order = T, level = 0.95)
+geno2 <- left_join(
+  geno2, tidy(trend_IA), by = "hibrido"
+)
+```
+
+```{r}
+ggplot(geno2) +
+  aes(x = IA, y = estimate, color = hibrido) +
+    geom_smooth(
+      method = 'lm', se = F, linetype = 'solid', size = 0.5,
+      formula = y ~  x
+    ) + 
+    geom_vline(aes(xintercept = mean(IA, na.rm=T)), col = "gray") +
+    geom_abline(slope = 1, intercept = 0, linetype = 'dashed') +
+    labs(
+      x = 'Índice Ambiental (Kg/ha)',
+      y = "Rinde bonificado"
+    ) +
+    theme_bw(base_size = 8) +
+    theme(panel.grid = element_blank())
+```
+
