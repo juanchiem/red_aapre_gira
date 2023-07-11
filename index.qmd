@@ -1,20 +1,20 @@
 - Coordinación general: Magalí Gutierrez 
 - Coordinación técnica: Juan Edwards (INTA Balcarce)
 
-# Objetivo general 
+# Objetivo general {.unnumbered}
 
 Generar y difundir información sobre el manejo del girasol en distintos ambientes para brindar sustentabilidad a los sistemas productivos mediante el trabajo en red.
 
-# Objetivos específicos 
+# Objetivos específicos {.unnumbered}
 
-## Línea genética	
+## Línea genética	{.unnumbered}
 
 - Evaluar la respuesta en rendimiento (y calidad) de los genotipos de girasol en lotes de producción. 
 - Evaluar el comportamiento de los genotipos ante Phomopsis y vuelco.	
 
 *Producto:* Genotipo de mayor rendimiento por ambiente
 
-## Linea Nutrición	
+## Linea Nutrición {.unnumbered}
 
 - Evaluar la respuesta en rendimiento (y calidad) del agregado de N en el cultivo de girasol. 
 - Evaluar el impacto de la fertilización nitrogenada con la sanidad del cultivo (foco en Phomopsis) y el vuelco. 
@@ -23,7 +23,7 @@ Generar y difundir información sobre el manejo del girasol en distintos ambient
 
 *Producto:*Dosis optima de nitrogeno por ambiente. Entendimiento la relación entre disponibilad de N y impacto de phomopsis
 
-## Linea Fungicida	
+## Linea Fungicida	{.unnumbered}
 
 - Evaluar la respuesta en rendimiento de la protección con fungicida en el cultivo de girasol
 - Entender que factores de manejo y ambiente son los más relevantes en determinar la respuesta productiva
@@ -31,7 +31,7 @@ Generar y difundir información sobre el manejo del girasol en distintos ambient
 
 *Producto:* Respuesta en rendimiento a fungicida por ambiente y entendimiento de la interacción respuesta-ambiente
 
-## Línea Densidad	
+## Línea Densidad	{.unnumbered}
 
 - Evaluar la asociación entre rendimiento y densidad de cultivo de girasol	
 
@@ -41,7 +41,7 @@ Generar y difundir información sobre el manejo del girasol en distintos ambient
 
 ![Localización de sitios experimentales](plots/mapa.png){fig-align="center"}
 
-```{r}
+```{r, warning = FALSE, message = FALSE}
 source(here::here("setup.R"))
 geno_dens <-rio::import("data/geno_densidad.csv")
 geno_dens %>% 

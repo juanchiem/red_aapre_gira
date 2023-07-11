@@ -1,3 +1,5 @@
+knitr::opts_chunk$set(echo = F, warning = FALSE, message = FALSE)
+
 library(tidyverse) 
 # library(ggpmisc)
 # library(ggstance)
